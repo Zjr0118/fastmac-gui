@@ -1,4 +1,4 @@
-#configure.sh VNC_USER_PASSWORD VNC_PASSWORD NGROK_AUTH_TOKEN
+#configure.sh VNC_USER_PASSWORD VNC_PASSWORD
 
 #disable spotlight indexing
 sudo mdutil -i off -a
@@ -25,9 +25,9 @@ echo $2 | perl -we 'BEGIN { @k = unpack "C*", pack "H*", "1734516E8BA8C5E2FF1C39
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate
 
-#install ngrok
-brew install --cask ngrok
-
-#configure ngrok and start it
-ngrok config add-authtoken "$3"
-ngrok tcp 5900 &
+# 使用 pinggy.io 免费 TCP 隧道（无需注册、无需绑卡，替代 ngrok）
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -q 2>/dev/null || true
+ssh -p 443 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=30 -T -R0:localhost:5900 tcp@free.pinggy.io > /tmp/pinggy.log 2>&1 &
+sleep 8
+echo "=== Pinggy tunnel output ==="
+cat /tmp/pinggy.log
