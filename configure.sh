@@ -14,6 +14,13 @@ sudo dscl . -passwd /Users/vncuser $1
 sudo dscl . -passwd /Users/vncuser $1
 sudo createhomedir -c -u vncuser > /dev/null
 
+# ---- Enable OpenSSH remote login ----
+sudo systemsetup -setremotelogin on 2>/dev/null || true
+sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || true
+# Allow password auth for vncuser
+sudo launchctl kickstart -k system/com.openssh.sshd 2>/dev/null || true
+echo "SSH status: $(sudo systemsetup -getremotelogin 2>/dev/null)"
+
 #Enable VNC
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -allowAccessFor -allUsers -privs -all
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes
@@ -32,17 +39,11 @@ caffeinate -d &
 sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser -string "vncuser"
 sudo caffeinate -u -t 15 &
 
-# Best-effort: grant screen-recording permission to screen-sharing service
-sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
-  "INSERT OR IGNORE INTO access (service, client, client_type, allowed, prompt_count) VALUES ('kTCCServiceScreenCapture','com.apple.screensharing.agent',1,1,0);" 2>/dev/null || echo "TCC.db blocked (SIP)"
-sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console 2>/dev/null || true
-sleep 3
-
 # Diagnose screenshot
 sudo screencapture -x /tmp/screen.png 2>/dev/null
 ls -la /tmp/screen.png 2>/dev/null
 
-# ---- bore free TCP tunnel (download official binary) ----
+# ---- bore binary install ----
 ARCH=$(uname -m)
 case "$ARCH" in
   arm64) BARCH="aarch64" ;;
@@ -59,10 +60,11 @@ try:
             print(a['browser_download_url']); break
 except: pass
 ")
-echo "bore url: $BORE_URL"
 curl -sL "$BORE_URL" -o /tmp/bore.tar.gz && tar xzf /tmp/bore.tar.gz -C /tmp && sudo install -m755 /tmp/bore /usr/local/bin/bore
-which bore && bore --version || echo "bore install failed"
-nohup bore local 5900 --to bore.pub > /tmp/bore.log 2>&1 &
+
+# bore tunnel: VNC (5900) and SSH (22)
+nohup bore local 5900 --to bore.pub > /tmp/bore_vnc.log 2>&1 &
+nohup bore local 22 --to bore.pub > /tmp/bore_ssh.log 2>&1 &
 sleep 8
-echo "=== bore tunnel output ==="
-cat /tmp/bore.log
+echo "=== VNC tunnel ==="; cat /tmp/bore_vnc.log
+echo "=== SSH tunnel ==="; cat /tmp/bore_ssh.log
