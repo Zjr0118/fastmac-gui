@@ -42,10 +42,26 @@ sleep 3
 sudo screencapture -x /tmp/screen.png 2>/dev/null
 ls -la /tmp/screen.png 2>/dev/null
 
-# ---- bore free TCP tunnel ----
-export HOMEBREW_NO_AUTO_UPDATE=1
-timeout 60 brew install bore 2>/dev/null || timeout 60 brew install ekzhang/tap/bore 2>/dev/null || echo "bore brew install failed"
-which bore && bore --version || echo "bore not on PATH"
+# ---- bore free TCP tunnel (download official binary) ----
+ARCH=$(uname -m)
+case "$ARCH" in
+  arm64) BARCH="aarch64" ;;
+  x86_64) BARCH="x86_64" ;;
+  *) BARCH="x86_64" ;;
+esac
+BORE_URL=$(curl -s https://api.github.com/repos/ekzhang/bore/releases/latest | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    for a in d.get('assets',[]):
+        n=a['name']
+        if 'apple-darwin' in n and '$BARCH' in n and n.endswith('.tar.gz'):
+            print(a['browser_download_url']); break
+except: pass
+")
+echo "bore url: $BORE_URL"
+curl -sL "$BORE_URL" -o /tmp/bore.tar.gz && tar xzf /tmp/bore.tar.gz -C /tmp && sudo install -m755 /tmp/bore /usr/local/bin/bore
+which bore && bore --version || echo "bore install failed"
 nohup bore local 5900 --to bore.pub > /tmp/bore.log 2>&1 &
 sleep 8
 echo "=== bore tunnel output ==="
