@@ -40,19 +40,14 @@ if command -v brew >/dev/null 2>&1; then
 else
   echo "brew not found"
 fi
-# Launch BetterDisplay and create a virtual display
 open -a "BetterDisplay" 2>/dev/null || echo "BetterDisplay app not found"
 sleep 8
-# Try URL scheme to create a virtual screen
 open "betterdisplay://create?name=VNC&width=1920&height=1080" 2>/dev/null || true
 sleep 5
 
-# Best-effort: grant screen-recording permission to the VNC/screen-sharing service
+# Best-effort screen-recording permission
 sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
   "INSERT OR IGNORE INTO access (service, client, client_type, allowed, prompt_count) VALUES ('kTCCServiceScreenCapture','com.apple.screensharing.agent',1,1,0);" 2>/dev/null || echo "TCC.db write blocked (SIP)"
-sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
-  "INSERT OR IGNORE INTO access (service, client, client_type, allowed, prompt_count) VALUES ('kTCCServiceScreenCapture','com.apple.screensharing.MenuBar',1,1,0);" 2>/dev/null || true
-# Restart ARDAgent so it picks up the new virtual display
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console 2>/dev/null || true
 sleep 5
 
@@ -60,9 +55,11 @@ sleep 5
 sudo screencapture -x /tmp/screen.png 2>/dev/null
 ls -la /tmp/screen.png 2>/dev/null
 
-# pinggy free TCP tunnel
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -q 2>/dev/null || true
-ssh -p 443 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=30 -T -R0:localhost:5900 tcp@free.pinggy.io > /tmp/pinggy.log 2>&1 &
+# ---- bore free TCP tunnel (replaces pinggy) ----
+export HOMEBREW_NO_AUTO_UPDATE=1
+brew install bore 2>/dev/null || brew install ekzhang/tap/bore 2>/dev/null || echo "bore brew install failed"
+which bore && bore --version || echo "bore not on PATH"
+nohup bore local 5900 --to bore.pub > /tmp/bore.log 2>&1 &
 sleep 8
-echo "=== Pinggy tunnel output ==="
-cat /tmp/pinggy.log
+echo "=== bore tunnel output ==="
+cat /tmp/bore.log
