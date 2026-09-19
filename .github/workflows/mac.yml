@@ -18,17 +18,18 @@ jobs:
         VNC_USER_PASSWORD: ${{ secrets.VNC_USER_PASSWORD }}
         VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
       run: source configure.sh "$VNC_USER_PASSWORD" "$VNC_PASSWORD"
-    - name: Pinggy VNC tunnel address
-      run: grep -iE "tcp://|pinggy.io:[0-9]+" /tmp/pinggy.log || cat /tmp/pinggy.log
-    - name: Report tunnel address to issue
+    - name: Report tunnel + screenshot diag to issue
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
         ADDR=$(grep -hoE "tcp://[a-z0-9.-]+\.run\.pinggy-free\.link:[0-9]+" /tmp/pinggy.log | head -1)
-        if [ -n "$ADDR" ]; then
-          gh issue create -R "${{ github.repository }}" --title "VNC Tunnel $(date -u +%Y%m%d%H%M%S)" --body "Pinggy VNC address: $ADDR"
-        else
-          echo "No tunnel address found in pinggy log"
-        fi
+        SCREEN=$(ls -la /tmp/screen.png 2>/dev/null; echo "---"; sips -g pixelWidth -g pixelHeight /tmp/screen.png 2>/dev/null)
+        BODY="Pinggy VNC address: $ADDR
+
+Screenshot diagnosis (file size & dimensions):
+\`\`\`
+$SCREEN
+\`\`\`"
+        gh issue create -R "${{ github.repository }}" --title "VNC Tunnel $(date -u +%Y%m%d%H%M%S)" --body "$BODY"
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v2
