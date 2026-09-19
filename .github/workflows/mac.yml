@@ -1,5 +1,5 @@
 name: mac
-on: 
+on:
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,18 +18,19 @@ jobs:
         VNC_USER_PASSWORD: ${{ secrets.VNC_USER_PASSWORD }}
         VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
       run: source configure.sh "$VNC_USER_PASSWORD" "$VNC_PASSWORD"
-    - name: Report tunnel + screenshot diag to issue
+    - name: Build issue body
+      run: |
+        ADDR=$(grep -hoE 'tcp://[a-z0-9.-]+\.run\.pinggy-free\.link:[0-9]+' /tmp/pinggy.log | head -1)
+        SCREEN=$(ls -la /tmp/screen.png 2>/dev/null; sips -g pixelWidth -g pixelHeight /tmp/screen.png 2>/dev/null)
+        {
+          echo "Pinggy VNC address: $ADDR"
+          echo
+          echo "Screenshot diagnosis:"
+          echo "$SCREEN"
+        } > /tmp/issue_body.txt
+    - name: Report tunnel + diag to issue
       env:
         GH_TOKEN: ${{ github.token }}
-      run: |
-        ADDR=$(grep -hoE "tcp://[a-z0-9.-]+\.run\.pinggy-free\.link:[0-9]+" /tmp/pinggy.log | head -1)
-        SCREEN=$(ls -la /tmp/screen.png 2>/dev/null; echo "---"; sips -g pixelWidth -g pixelHeight /tmp/screen.png 2>/dev/null)
-        BODY="Pinggy VNC address: $ADDR
-
-Screenshot diagnosis (file size & dimensions):
-\`\`\`
-$SCREEN
-\`\`\`"
-        gh issue create -R "${{ github.repository }}" --title "VNC Tunnel $(date -u +%Y%m%d%H%M%S)" --body "$BODY"
+      run: gh issue create -R "${{ github.repository }}" --title "VNC Tunnel $(date -u +%Y%m%d%H%M%S)" --body-file /tmp/issue_body.txt
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v2
