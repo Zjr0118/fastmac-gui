@@ -18,7 +18,6 @@ sudo createhomedir -c -u vncuser > /dev/null
 sudo systemsetup -setremotelogin on 2>/dev/null || true
 sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || true
 sudo launchctl kickstart -k system/com.openssh.sshd 2>/dev/null || true
-echo "SSH status: $(sudo systemsetup -getremotelogin 2>/dev/null)"
 
 #Enable VNC
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -allowAccessFor -allUsers -privs -all
@@ -26,6 +25,11 @@ sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resourc
 
 #VNC password
 echo $2 | perl -we 'BEGIN { @k = unpack "C*", pack "H*", "1734516E8BA8C5E2FF1C39567390ADCA"}; $_ = <>; chomp; s/^(.{8}).*/$1/; @p = unpack "C*", $_; foreach (@k) { printf "%02X", $_ ^ (shift @p || 0) }; print "\n"' | sudo tee /Library/Preferences/com.apple.VNCSettings.txt
+
+# ---- Grant screen-recording permission to ARDAgent (TCC) ----
+# Done here while a framebuffer exists (runner startup window)
+sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, indirect_object_identifier, last_modified) VALUES ('kTCCServiceScreenCapture', 'com.apple.screensharing.agent', 0, 2, 0, 1, 'UNUSED', strftime('%s','now'));" 2>/dev/null || echo "TCC grant failed"
+sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "INSERT OR REPLACE INTO access (service, client, client_type, allowed, prompt_count) VALUES ('kTCCServiceScreenCapture', 'com.apple.screensharing.agent', 1, 1, 0);" 2>/dev/null || true
 
 #Start VNC
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console
@@ -35,6 +39,10 @@ sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resourc
 sudo pmset -a displaysleep 0 sleep 0
 sudo pmset noidle &
 caffeinate -d &
+
+# Diagnose screenshot (framebuffer should exist here)
+sudo screencapture -x /tmp/screen.png 2>/dev/null
+ls -la /tmp/screen.png 2>/dev/null
 
 # ---- bore binary install ----
 ARCH=$(uname -m)
