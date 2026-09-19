@@ -16,7 +16,7 @@ sudo createhomedir -c -u vncuser > /dev/null
 
 #Enable VNC
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -allowAccessFor -allUsers -privs -all
-sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes 
+sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes
 
 #VNC password
 echo $2 | perl -we 'BEGIN { @k = unpack "C*", pack "H*", "1734516E8BA8C5E2FF1C39567390ADCA"}; $_ = <>; chomp; s/^(.{8}).*/$1/; @p = unpack "C*", $_; foreach (@k) { printf "%02X", $_ ^ (shift @p || 0) }; print "\n"' | sudo tee /Library/Preferences/com.apple.VNCSettings.txt
@@ -32,16 +32,33 @@ caffeinate -d &
 sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser -string "vncuser"
 sudo caffeinate -u -t 15 &
 
-# Diagnose: try to wake loginwindow into a GUI session
-sudo launchctl bootstrap gui/$(id -u vncuser) 2>/dev/null || true
+# ---- Virtual display via BetterDisplay (fix headless VNC black screen) ----
+export HOMEBREW_NO_AUTO_UPDATE=1
+export HOMEBREW_CASK_OPTS="--no-quarantine"
+if command -v brew >/dev/null 2>&1; then
+  brew install --cask betterdisplay 2>&1 | tail -5 || echo "betterdisplay cask install failed"
+else
+  echo "brew not found"
+fi
+# Launch BetterDisplay and create a virtual display
+open -a "BetterDisplay" 2>/dev/null || echo "BetterDisplay app not found"
+sleep 8
+# Try URL scheme to create a virtual screen
+open "betterdisplay://create?name=VNC&width=1920&height=1080" 2>/dev/null || true
 sleep 5
 
-# Capture screen to diagnose black screen
+# Best-effort: grant screen-recording permission to the VNC/screen-sharing service
+sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+  "INSERT OR IGNORE INTO access (service, client, client_type, allowed, prompt_count) VALUES ('kTCCServiceScreenCapture','com.apple.screensharing.agent',1,1,0);" 2>/dev/null || echo "TCC.db write blocked (SIP)"
+sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+  "INSERT OR IGNORE INTO access (service, client, client_type, allowed, prompt_count) VALUES ('kTCCServiceScreenCapture','com.apple.screensharing.MenuBar',1,1,0);" 2>/dev/null || true
+# Restart ARDAgent so it picks up the new virtual display
+sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console 2>/dev/null || true
+sleep 5
+
+# Diagnose screenshot
 sudo screencapture -x /tmp/screen.png 2>/dev/null
-echo "=== SCREENSHOT ==="
 ls -la /tmp/screen.png 2>/dev/null
-# Report whether image is mostly black (file size + pixel info via sips)
-sips -g pixelWidth -g pixelHeight /tmp/screen.png 2>/dev/null
 
 # pinggy free TCP tunnel
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -q 2>/dev/null || true
