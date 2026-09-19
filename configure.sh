@@ -30,6 +30,11 @@ sudo pmset -a displaysleep 0 sleep 0
 sudo pmset noidle &
 caffeinate -d &
 
+# Auto-login as vncuser so the desktop shows instead of a black login window
+sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser -string "vncuser"
+# Wake the display immediately
+sudo caffeinate -u -t 15 &
+
 # 使用 pinggy.io 免费 TCP 隧道（无需注册、无需绑卡，替代 ngrok）
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -q 2>/dev/null || true
 ssh -p 443 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=30 -T -R0:localhost:5900 tcp@free.pinggy.io > /tmp/pinggy.log 2>&1 &
