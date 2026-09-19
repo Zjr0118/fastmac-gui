@@ -17,7 +17,6 @@ sudo createhomedir -c -u vncuser > /dev/null
 # ---- Enable OpenSSH remote login ----
 sudo systemsetup -setremotelogin on 2>/dev/null || true
 sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || true
-# Allow password auth for vncuser
 sudo launchctl kickstart -k system/com.openssh.sshd 2>/dev/null || true
 echo "SSH status: $(sudo systemsetup -getremotelogin 2>/dev/null)"
 
@@ -32,16 +31,10 @@ echo $2 | perl -we 'BEGIN { @k = unpack "C*", pack "H*", "1734516E8BA8C5E2FF1C39
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate
 
-# Prevent display sleep & auto-login
+# Prevent display sleep
 sudo pmset -a displaysleep 0 sleep 0
 sudo pmset noidle &
 caffeinate -d &
-sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser -string "vncuser"
-sudo caffeinate -u -t 15 &
-
-# Diagnose screenshot
-sudo screencapture -x /tmp/screen.png 2>/dev/null
-ls -la /tmp/screen.png 2>/dev/null
 
 # ---- bore binary install ----
 ARCH=$(uname -m)
@@ -62,9 +55,9 @@ except: pass
 ")
 curl -sL "$BORE_URL" -o /tmp/bore.tar.gz && tar xzf /tmp/bore.tar.gz -C /tmp && sudo install -m755 /tmp/bore /usr/local/bin/bore
 
-# bore tunnel: VNC (5900) and SSH (22)
-nohup bore local 5900 --to bore.pub > /tmp/bore_vnc.log 2>&1 &
-nohup bore local 22 --to bore.pub > /tmp/bore_ssh.log 2>&1 &
+# bore tunnel: use setsid so it survives loginwindow restarts
+setsid nohup bore local 5900 --to bore.pub > /tmp/bore_vnc.log 2>&1 < /dev/null &
+setsid nohup bore local 22 --to bore.pub > /tmp/bore_ssh.log 2>&1 < /dev/null &
 sleep 8
 echo "=== VNC tunnel ==="; cat /tmp/bore_vnc.log
 echo "=== SSH tunnel ==="; cat /tmp/bore_ssh.log
