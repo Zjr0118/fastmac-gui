@@ -55,9 +55,9 @@ except: pass
 ")
 curl -sL "$BORE_URL" -o /tmp/bore.tar.gz && tar xzf /tmp/bore.tar.gz -C /tmp && sudo install -m755 /tmp/bore /usr/local/bin/bore
 
-# bore tunnel: use setsid so it survives loginwindow restarts
-setsid nohup bore local 5900 --to bore.pub > /tmp/bore_vnc.log 2>&1 < /dev/null &
-setsid nohup bore local 22 --to bore.pub > /tmp/bore_ssh.log 2>&1 < /dev/null &
+# bore tunnel: VNC + SSH
+nohup bore local 5900 --to bore.pub > /tmp/bore_vnc.log 2>&1 < /dev/null &
+nohup bore local 22 --to bore.pub > /tmp/bore_ssh.log 2>&1 < /dev/null &
 sleep 8
 echo "=== VNC tunnel ==="; cat /tmp/bore_vnc.log
 echo "=== SSH tunnel ==="; cat /tmp/bore_ssh.log
