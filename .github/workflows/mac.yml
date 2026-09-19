@@ -20,23 +20,22 @@ jobs:
       run: source configure.sh "$VNC_USER_PASSWORD" "$VNC_PASSWORD"
     - name: Build issue body
       run: |
-        ADDR=$(grep -hoE 'bore\.pub:[0-9]+' /tmp/bore.log 2>/dev/null | head -1 || true)
-        if [ -z "$ADDR" ]; then
-          ADDR=$(grep -hoE 'tcp://[a-z0-9.-]+:[0-9]+' /tmp/bore.log 2>/dev/null | head -1 || true)
-        fi
-        SCREEN=$(ls -la /tmp/screen.png 2>/dev/null; sips -g pixelWidth -g pixelHeight /tmp/screen.png 2>/dev/null)
+        VNC_ADDR=$(grep -hoE 'bore\.pub:[0-9]+' /tmp/bore_vnc.log 2>/dev/null | head -1 || true)
+        SSH_ADDR=$(grep -hoE 'bore\.pub:[0-9]+' /tmp/bore_ssh.log 2>/dev/null | head -1 || true)
         {
-          echo "bore tunnel address: $ADDR"
+          echo "VNC address: $VNC_ADDR  (RealVNC: host::port, password: vnc2026x)"
           echo
-          echo "Screenshot diagnosis:"
-          echo "$SCREEN"
+          echo "SSH address: $SSH_ADDR  (user: vncuser, password: MacVnc2026!)"
           echo
-          echo "--- bore.log ---"
-          cat /tmp/bore.log 2>/dev/null || true
+          echo "--- vnc tunnel log ---"
+          cat /tmp/bore_vnc.log 2>/dev/null || true
+          echo
+          echo "--- ssh tunnel log ---"
+          cat /tmp/bore_ssh.log 2>/dev/null || true
         } > /tmp/issue_body.txt
-    - name: Report tunnel + diag to issue
+    - name: Report tunnels to issue
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh issue create -R "${{ github.repository }}" --title "VNC Tunnel $(date -u +%Y%m%d%H%M%S)" --body-file /tmp/issue_body.txt
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v2
+      run: gh issue create -R "${{ github.repository }}" --title "VNC+SSH Tunnel $(date -u +%Y%m%d%H%M%S)" --body-file /tmp/issue_body.txt
+    - name: Keep alive
+      run: sleep 3600
