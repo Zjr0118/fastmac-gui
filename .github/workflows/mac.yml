@@ -20,8 +20,10 @@ jobs:
       run: source configure.sh "$VNC_USER_PASSWORD" "$VNC_PASSWORD"
     - name: Build issue body
       run: |
-        ADDR=$(grep -hoE 'bore\.pub:[0-9]+' /tmp/bore.log 2>/dev/null | head -1)
-        [ -z "$ADDR" ] && ADDR=$(grep -hoE 'tcp://[a-z0-9.-]+:[0-9]+' /tmp/bore.log 2>/dev/null | head -1)
+        ADDR=$(grep -hoE 'bore\.pub:[0-9]+' /tmp/bore.log 2>/dev/null | head -1 || true)
+        if [ -z "$ADDR" ]; then
+          ADDR=$(grep -hoE 'tcp://[a-z0-9.-]+:[0-9]+' /tmp/bore.log 2>/dev/null | head -1 || true)
+        fi
         SCREEN=$(ls -la /tmp/screen.png 2>/dev/null; sips -g pixelWidth -g pixelHeight /tmp/screen.png 2>/dev/null)
         {
           echo "bore tunnel address: $ADDR"
@@ -30,7 +32,7 @@ jobs:
           echo "$SCREEN"
           echo
           echo "--- bore.log ---"
-          cat /tmp/bore.log 2>/dev/null
+          cat /tmp/bore.log 2>/dev/null || true
         } > /tmp/issue_body.txt
     - name: Report tunnel + diag to issue
       env:
